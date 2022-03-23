@@ -1,0 +1,37 @@
+---
+title: "Clustering-data"
+output: html_document
+---
+
+
+
+EFA model https://campus.datacamp.com/courses/factor-analysis-in-r/evaluating-your-measure-with-factor-analysis?ex=1
+
+EFA explained https://www.sciencedirect.com/topics/medicine-and-dentistry/exploratory-factor-analysis
+
+EFA explained https://www.youtube.com/watch?v=Ollp2nSQCLY 
+```{r}
+
+
+library(psych)
+
+#Making all -1 to NA's
+#Physician[Physician == -1] <- NA
+
+#EFA for other fatigue
+EFA_model <- fa(Physician[322:334]) #mangler gastofistularectumM3 kollonne 82
+fa.diagram(EFA_model)
+EFA_model$loadings
+
+plot(density(EFA_model$scores, na.rm = TRUE), 
+    main = "Factor Scores")
+
+
+#EFA for physician symptoms
+EFA_model <- fa(Physician[,c(2,18,34,50,66,98,114,130,146,162,178,194,210,226,242,258,274,290,306,322,338)]) #mangler gastofistularectumM3 kollonne 82
+fa.diagram(EFA_model)
+EFA_model$loadings
+
+plot(density(EFA_model$scores, na.rm = TRUE), 
+    main = "Factor Scores")
+```
