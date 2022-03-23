@@ -12,7 +12,6 @@ EFA explained https://www.sciencedirect.com/topics/medicine-and-dentistry/explor
 EFA explained https://www.youtube.com/watch?v=Ollp2nSQCLY 
 ```{r}
 
-
 library(psych)
 
 #Making all -1 to NA's
