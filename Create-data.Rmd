@@ -1,0 +1,163 @@
+---
+title: "Create-data"
+output: html_document
+---
+
+
+
+
+Loading libraries
+```{r setup, include=FALSE}
+library("tidyverse")
+library("readxl")
+library("writexl")
+library("ggplot2")
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(stringi)
+```
+
+
+Load and create data
+```{r}
+# Read Data
+Data <- read_excel("~/Documents/DAV/4. Semester/Dataprojekt/DataProject_onlyvariables.xlsx")
+c = 1 # Dosn't work
+Test_data <- Data
+for(i in 9:24){
+  names(Test_data)[i] <- sub("_",paste("_",c,": ",sep = ""),names(Test_data[i]))
+  c = c +1
+}
+
+Patient_info <- Data[1:8]
+
+Physician <- Data[25:376]
+EORTC_C30 <- Data[377:856]
+EORTC_CX24 <- Data[857:1240]
+
+# unpivot dates
+Unpivot_data <- Data %>% 
+  pivot_longer(
+    cols = starts_with("CTCAEA"),
+    names_to = "Periods",
+    values_to = "Dates"
+  ) 
+PivotData_dates <- Unpivot_data %>% 
+  select(ID_Pat,
+         Periods,
+         Dates) %>% 
+  separate(col = Periods, into = c("var", "series"), sep = "_") 
+
+#Unpivot all side effects
+PivotData_sideeffects <- Data %>% 
+  select(-starts_with("CTCAEA")) %>% 
+  pivot_longer(cols = -c(ID_Pat,CentreID_Pat,
+                         Age,BMI_categories,
+                         Smoking,
+                         ChronicDiseases,
+                         FIGO_2009,
+                         EndTreatmentDate)) %>% 
+  separate(col = name, into = c("var", "series"), sep = "_") %>% 
+  pivot_wider(id_cols = c( c(ID_Pat,CentreID_Pat,
+                         Age,BMI_categories,
+                         Smoking,
+                         ChronicDiseases,
+                         FIGO_2009,
+                         EndTreatmentDate)
+                         , series), 
+              names_from = "var", 
+              values_from = "value")
+#Join the two unpivoted frames 
+PivotData <- PivotData_dates %>% 
+  select(-var) %>% 
+  left_join(PivotData_sideeffects, by = c("ID_Pat", "series")) %>% 
+  relocate(c(series,Dates), .after = EndTreatmentDate)
+
+#remove -1 and large incorrect valuse for all side effect coloumns
+for(i in 11:77) { 
+  PivotData[i] <- replace(PivotData[i], PivotData[i]<0, NA)
+  PivotData[i] <- replace(PivotData[i], PivotData[i]>8, NA)
+  
+}
+
+#Use if needed
+#write_csv(PivotData,"DATA_csv.csv")
+#write_xlsx(PivotData,"Data_excel.xlsx")
+
+```
+
+
+Calculating and adding score columns
+```{r}
+PivotData["Pain score"] <- NA
+PivotData["Fatique score"] <- NA
+PivotData["QOL_score"] <- NA
+
+for (i in 1:length(PivotData[[1]])){
+  
+  #QOL
+  n = 2
+  range = 6
+  if (!is.na(PivotData$EORTCC30Q29[i]) | !is.na(PivotData$EORTCC30Q30[i])){
+    RS <- ( PivotData$EORTCC30Q29[i] + PivotData$EORTCC30Q30[i]) / n
+    
+    PivotData$QOL_score[i] <- ( RS - 1) / range * 100
+    
+  } else if (!is.na(PivotData$EORTCC30Q29[i])){ # When only question 29 is given
+    RS <- ( PivotData$EORTCC30Q29[i])
+    PivotData$QOL_score[i] <- ( RS - 1) / range * 100
+    
+  } else if (!is.na(PivotData$EORTCC30Q30[i])){
+    RS <- ( PivotData$EORTCC30Q30[i])
+    PivotData$QOL_score[i] <- ( RS - 1) / range * 100
+  } else {
+    # pass
+  }
+  
+  # Pain
+  n = 2
+  range = 3
+  if (!is.na(PivotData$EORTCC30Q09[i]) | !is.na(PivotData$EORTCC30Q19[i])){
+    RS <- ( PivotData$EORTCC30Q09[i] + PivotData$EORTCC30Q19[i]) / n
+    
+    PivotData$`Pain score`[i] <- ( RS - 1) / range * 100
+    
+  } else if (!is.na(PivotData$EORTCC30Q09[i])){ # When only question 29 is given
+    RS <- ( PivotData$EORTCC30Q09[i])
+    PivotData$`Pain score`[i] <- ( RS - 1) / range * 100
+    
+  } else if (!is.na(PivotData$EORTCC30Q19[i])){
+    RS <- ( PivotData$EORTCC30Q19[i])
+    PivotData$`Pain score`[i] <- ( RS - 1) / range * 100
+  } else {
+    # pass
+  }
+  
+  # Fatique
+  n = 3
+  range = 3
+  if (!is.na(PivotData$EORTCC30Q10[i]) | !is.na(PivotData$EORTCC30Q12[i]) | !is.na(PivotData$EORTCC30Q18[i])){
+    RS <- ( PivotData$EORTCC30Q10[i] + PivotData$EORTCC30Q12[i] + PivotData$EORTCC30Q18[i] ) / n
+    
+    PivotData$`Fatique score`[i] <- ( RS - 1) / range * 100
+    
+  } else if (is.na(PivotData$EORTCC30Q10[i])){ # When only question 29 is given
+    RS <- ( PivotData$EORTCC30Q12[i] + PivotData$EORTCC30Q18[i]) / 2
+    PivotData$`Fatique score`[i] <- ( RS - 1) / range * 100
+    
+  } else if (is.na(PivotData$EORTCC30Q12[i])){
+    RS <- ( PivotData$EORTCC30Q10[i] + PivotData$EORTCC30Q18[i]) / 2
+    PivotData$`Fatique score`[i] <- ( RS - 1) / range * 100
+  } else if (is.na(PivotData$EORTCC30Q18[i])){
+    RS <- ( PivotData$EORTCC30Q10[i] + PivotData$EORTCC30Q12[i]) / 2
+    PivotData$`Fatique score`[i] <- ( RS - 1) / range * 100
+  } else {
+    # pass
+  }
+}
+```
+
+
+
