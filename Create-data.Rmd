@@ -23,7 +23,7 @@ library(stringi)
 
 Load and create data
 ```{r}
-# Read Data
+# Read Data.
 Data <- read_excel("Data_excel.xlsx")
 c = 1 # Dosn't work
 Test_data <- Data
