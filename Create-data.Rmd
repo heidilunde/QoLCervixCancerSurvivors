@@ -24,7 +24,7 @@ library(stringi)
 Load and create data
 ```{r}
 # Read Data
-Data <- read_excel("~/Documents/DAV/4. Semester/Dataprojekt/DataProject_onlyvariables.xlsx")
+Data <- read_excel("Data_excel.xlsx")
 c = 1 # Dosn't work
 Test_data <- Data
 for(i in 9:24){
