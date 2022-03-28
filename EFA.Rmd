@@ -12,25 +12,106 @@ EFA explained https://www.sciencedirect.com/topics/medicine-and-dentistry/explor
 EFA explained https://www.youtube.com/watch?v=Ollp2nSQCLY 
 ```{r}
 
+
+
+
 library(psych)
 
 #Making all -1 to NA's
-#Physician[Physician == -1] <- NA
+Physician[Physician == -1] <- NA
 
 #EFA for other fatigue
-EFA_model <- fa(Physician[322:334]) #mangler gastofistularectumM3 kollonne 82
-fa.diagram(EFA_model)
-EFA_model$loadings
+EFA_model_vagina <- fa(Physician[,c(210,226,242,258,274)]) #mangler gastofistularectumM3 kollonne 82
+fa.diagram(EFA_model_vagina)
+EFA_model_vagina$loadings
 
-plot(density(EFA_model$scores, na.rm = TRUE), 
+plot(density(EFA_model_vagina$scores, na.rm = TRUE), 
     main = "Factor Scores")
 
+#2,18,34,50,66,98,114,130,146,162,178,194,210,226,242,258,274,290,306,322,338
 
-#EFA for physician symptoms
-EFA_model <- fa(Physician[,c(2,18,34,50,66,98,114,130,146,162,178,194,210,226,242,258,274,290,306,322,338)]) #mangler gastofistularectumM3 kollonne 82
-fa.diagram(EFA_model)
-EFA_model$loadings
+#EFA for bladder symptoms
+EFA_model_bladder <- fa(Physician[,c(98,114,130,146,162,178,194)]) #mangler gastofistularectumM3 kollonne 82
+fa.diagram(EFA_model_bladder)
+EFA_model_bladder$loadings
 
-plot(density(EFA_model$scores, na.rm = TRUE), 
+plot(density(EFA_model_bladder$scores, na.rm = TRUE), 
     main = "Factor Scores")
 ```
+
+
+
+
+
+
+alt for mange 0'er til at give et godt billede
+```{r}
+error.dots(Physician[,c(98,114,130,146,162,178,194)])
+```
+
+
+
+
+
+```{r}
+library(psych)
+library(corrplot)
+library("psych")
+library(ggplot2)
+library(car)
+```
+
+
+
+
+```{r}
+describe(Physician[,c(98,114,130,146,162,178,194)])
+```
+
+
+
+
+PCA on bladder symptoms with covariance (not sure if I have to enter a covariance matrix) https://www.statmethods.net/advstats/factor.html 
+```{r}
+Bladder_symptoms<-Physician[,c(98,114,130,146,162,178,194)]
+Bladder_symptoms[Bladder_symptoms == -1] <- NA
+
+fit <- princomp(na.omit(Bladder_symptoms), cor=FALSE) #base the principal components on the covariance matrix
+summary(fit) # print variance accounted for
+loadings(fit) # pc loadings
+plot(fit,type="lines") # scree plot
+fit$scores # the principal components
+biplot(fit)
+```
+
+
+
+
+```{r}
+library(psych)
+
+Bladder_Vagina_Symptoms<-Physician[,c(98,114,130,146,162,178,194,210,226,242,258,274)]
+
+fit <- principal(na.omit(Bladder_Vagina_Symptoms), nfactors=2, rotate="cluster")
+fit # print results
+```
+
+
+
+
+
+```{r}
+fit <- factanal(mydata, 3, rotation="varimax")
+print(fit, digits=2, cutoff=.3, sort=TRUE)
+# plot factor 1 by factor 2
+load <- fit$loadings[,1:2]
+plot(load,type="n") # set up plot
+text(load,labels=names(mydata),cex=.7) # add variable names
+```
+
+
+
+
+
+
+
