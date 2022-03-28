@@ -1,0 +1,217 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+Installing packages
+
+```{r setup, include=FALSE}
+library("tidyverse")
+library("readxl")
+library("writexl")
+library("ggplot2")
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(stringi)
+library(RColorBrewer)
+library(dendextend)  # for comparing two dendrograms
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(foreign)
+```
+
+
+Data reading
+```{r}
+# Read Data
+Data <- read_excel("../Dataproject_onlyvariables.xlsx")
+
+
+
+head(Data)
+Patient_info <- Data[1:8]
+is.numeric(Patient_info$Age)
+
+Physician <- Data[25:376]
+EORTC_C30 <- Data[377:856]
+EORTC_CX24 <- Data[857:1240]
+
+
+
+# unpivot dates
+Unpivot_data <- Data %>% 
+  pivot_longer(
+    cols = starts_with("CTCAEA"),
+    names_to = "Periods",
+    values_to = "Dates"
+  ) 
+PivotData_dates <- Unpivot_data %>% 
+  select(ID_Pat,
+         Periods,
+         Dates) %>% 
+  separate(col = Periods, into = c("var", "series"), sep = "_") 
+
+#Unpivot all side effects
+PivotData_sideeffects <- Data %>% 
+  select(-starts_with("CTCAEA")) %>% 
+  pivot_longer(cols = -c(ID_Pat,CentreID_Pat,
+                         Age,BMI_categories,
+                         Smoking,
+                         ChronicDiseases,
+                         FIGO_2009,
+                         EndTreatmentDate)) %>% 
+  separate(col = name, into = c("var", "series"), sep = "_") %>% 
+  pivot_wider(id_cols = c( c(ID_Pat,CentreID_Pat,
+                         Age,BMI_categories,
+                         Smoking,
+                         ChronicDiseases,
+                         FIGO_2009,
+                         EndTreatmentDate)
+                         , series), 
+              names_from = "var", 
+              values_from = "value")
+#Join the two unpivoted frames 
+PivotData <- PivotData_dates %>% 
+  select(-var) %>% 
+  left_join(PivotData_sideeffects, by = c("ID_Pat", "series")) %>% 
+  relocate(c(series,Dates), .after = EndTreatmentDate)
+
+#remove -1 and large incorrect valuse for all side effect coloumns
+for(i in 11:77) { 
+  PivotData[i] <- replace(PivotData[i], PivotData[i]<0, NA)
+  PivotData[i] <- replace(PivotData[i], PivotData[i]>8, NA)
+  
+}
+
+#Use if needed
+write_csv(PivotData,"DATA_csv.csv")
+write_xlsx(PivotData,"Data_excel.xlsx")
+```
+
+
+
+
+```{r}
+library(plm)
+
+time_gastro_Diarrh <- PivotData %>%
+  select("series","GastroDiarrhea")
+
+plm(time_gastro_Diarrh)
+
+
+scatterplot(GastroDiarrhea~series|country, boxplots=FALSE, smooth=TRUE, reg.line=FALSE, data=time_gastro_Diarrh)
+```
+
+
+```{r}
+hca_data <- PivotData%>%
+  select("EORTCC30Q09","EORTCC30Q24","EORTCC30Q29", "EORTCC30Q30")
+hca_data[is.na(hca_data)] <- 0
+
+head(hca_data)
+
+hclust(dist(hca_data))
+
+
+
+hca_data_1 = hclust(dist(hca_data), method = "complete") 
+
+hca_data_2 <- as.dendrogram(hca_data_1) #create dendrogram object
+
+#check number leaves in tree
+nleaves(hca_data_2) #1340
+
+#number of nodes (=leaves + joins) in tree
+nnodes(hca_data_2)#2679
+
+plot(hca_data_2, leaflab = "none")
+
+plot(color_branches(hca_data_2,k=7, leaflab = "none"))
+```
+
+
+https://opr.princeton.edu/workshops/Downloads/2020Jan_LatentClassAnalysisPratt_LCA_2020-1-14.pdf 
+```{r}
+#hca_data <- PivotData %>%
+#  select("EORTCC30Q09","EORTCC30Q24","EORTCC30Q29", "EORTCC30Q30")
+#hca_data[is.na(hca_data)] <- 0
+
+#vars <- c("mhintake", "mhdiageval", "mhreferral", "treatmt","adminserv")
+#vars_1 <- c("EORTCC30Q09","EORTCC30Q24","EORTCC30Q29", "EORTCC30Q30")
+
+#vars<-hca_data 
+
+
+#for (i in 1:length(vars)){
+#	PivotData[,vars_1[i]] <- PivotData[,vars_1[i]]+1
+#}
+
+
+library(poLCA)
+f1 <- as.formula(cbind(EORTCC30Q09,EORTCC30Q24,EORTCC30Q29, EORTCC30Q30)~1)
+LCA2 <- poLCA(f1, data=PivotData, nclass=2)
+
+
+plot(LCA2)
+
+# 3 klasser
+
+
+LCA3 <- poLCA(f1, data=PivotData, nclass=3)
+
+#slide15:
+LCA3 <- poLCA(f1, data=PivotData, nclass=3, maxiter=3000)
+LCA3 <- poLCA(f1, data=PivotData, nclass=3, nrep=5)
+LCA3 <- poLCA(f1, data=PivotData, nclass=3, maxiter=3000, nrep=5)
+
+plot(LCA3)
+
+# 4 Klasser
+LCA4 <- poLCA(f1, data=PivotData, nclass=4, maxiter=3000, nrep=5)
+#LCA4 <- poLCA(f1, data=samhsa2015, nclass=4, maxiter=5000, nrep=5)
+
+LCA5 <- poLCA(f1, data=PivotData, nclass=5, maxiter=5000, nrep=10)
+
+
+
+### with covariate - 'offer pay assistance' 
+#slide19:
+f2<- as.formula(cbind(EORTCC30Q09,EORTCC30Q24,EORTCC30Q29, EORTCC30Q30)~series)
+
+#set.seed(4589)
+LCA3c <- poLCA(f2, data=PivotData, nclass=3, maxiter=5000, nrep=5)
+
+#predicted class membership is in:
+LCA3$predclass[1:30]
+
+#could be used as another variable (part of the data):
+samhsa2015$LCAf5 <- LCA3$predclass
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
